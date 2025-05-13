@@ -22,10 +22,10 @@ class AttendanceController extends Controller
     public function show($id)
     {
         $attendance = Attendance::findOrFail($id);
-        
+
         return response()->json([
-            'foto' => $attendance->foto ? asset('storage/' . $attendance->foto) : asset('images/default-user.jpg'),
-            'foto_checkout' => $attendance->foto_checkout ? asset('storage/' . $attendance->foto_checkout) : null,
+            'foto' => $attendance->foto ? url('storage/attendances/' . basename($attendance->foto)) : asset('images/default-user.jpg'),
+            'foto_checkout' => $attendance->foto_checkout ? url('storage/attendances/' . basename($attendance->foto_checkout)) : null,
             'nama' => $attendance->nama,
             'lokasi' => $attendance->lokasi,
             'hadir_untuk' => $attendance->hadir_untuk,
@@ -43,19 +43,29 @@ class AttendanceController extends Controller
         try {
             // Hapus file foto check-in dari storage
             if ($attendance->foto) {
-                Storage::disk('public')->delete($attendance->foto);
-                Log::info('Foto check-in berhasil dihapus: ' . $attendance->foto);
+                // Dapatkan nama file saja dari path lengkap
+                $fileName = basename($attendance->foto);
+                // Hapus dari direktori public
+                if (file_exists(public_path('storage/attendances/' . $fileName))) {
+                    unlink(public_path('storage/attendances/' . $fileName));
+                    Log::info('Foto check-in berhasil dihapus: ' . $fileName);
+                }
             }
-            
+
             // Hapus file foto check-out dari storage (jika ada)
             if ($attendance->foto_checkout) {
-                Storage::disk('public')->delete($attendance->foto_checkout);
-                Log::info('Foto check-out berhasil dihapus: ' . $attendance->foto_checkout);
+                // Dapatkan nama file saja dari path lengkap
+                $fileName = basename($attendance->foto_checkout);
+                // Hapus dari direktori public
+                if (file_exists(public_path('storage/attendances/' . $fileName))) {
+                    unlink(public_path('storage/attendances/' . $fileName));
+                    Log::info('Foto check-out berhasil dihapus: ' . $fileName);
+                }
             }
-            
+
             // Hapus record dari database
             $attendance->delete();
-            
+
             // Buat notifikasi untuk penghapusan presensi
             Notification::create([
                 'user_id' => Auth::id(),
@@ -63,7 +73,7 @@ class AttendanceController extends Controller
                 'message' => 'Data presensi ' . $attendance->nama . ' telah dihapus.',
                 'type' => 'warning'
             ]);
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Data presensi dan foto berhasil dihapus'
@@ -80,7 +90,7 @@ class AttendanceController extends Controller
     public function checkAttendance(Employee $employee)
     {
         $today = now()->toDateString();
-        
+
         // Check if employee has any attendance record for today
         $attendance = Attendance::where('nama', $employee->nama)
             ->whereDate('tanggal', $today)
@@ -117,60 +127,58 @@ class AttendanceController extends Controller
             'is_checkout' => 'required|boolean',
             'early_leave_reason' => 'required_if:is_checkout,true'
         ]);
-    
+
         try {
             $today = now()->toDateString();
-            
+
             if ($request->is_checkout) {
                 // Update existing attendance record for check-out
                 $attendance = Attendance::where('nama', $request->nama)
                     ->whereDate('tanggal', $today)
                     ->whereNull('check_out')
                     ->firstOrFail();
-    
+
                 try {
                     // Get current time for check-out
                     $now = now();
                     $checkOutTime = $now->format('H:i:s');
-                    
+
                     // Parse times more safely
                     $checkIn = \Carbon\Carbon::parse($attendance->check_in);
                     $checkOut = \Carbon\Carbon::parse($checkOutTime);
-                    
+
                     // Calculate work duration in minutes
                     $workMinutes = $checkOut->diffInMinutes($checkIn);
-                    
+
                     // Ensure work_hours doesn't exceed reasonable limits (24 hours = 1440 minutes)
                     if ($workMinutes > 1440) {
                         $workMinutes = 1440;
                     }
-                    
+
                     // Calculate attendance percentage (8 hours = 480 minutes is 100%)
                     $targetMinutes = 480; // 8 hours * 60 minutes
                     $attendancePercentage = min(100, round(($workMinutes / $targetMinutes) * 100, 2));
-    
-                    // Log for debugging
-                    Log::info('Attendance calculation:', [
-                        'check_in_time' => $attendance->check_in,
-                        'check_out_time' => $checkOutTime,
-                        'work_minutes' => $workMinutes,
-                        'percentage' => $attendancePercentage
-                    ]);
-    
+
+                    // Simpan foto di direktori public/storage/attendances
+                    $photoFile = $request->file('foto');
+                    $fileName = uniqid() . '_' . time() . '.' . $photoFile->getClientOriginalExtension();
+                    $photoFile->move(public_path('storage/attendances'), $fileName);
+                    $fotoPath = 'attendances/' . $fileName;
+
                     $attendance->update([
                         'check_out' => $checkOutTime,
-                        'foto_checkout' => $request->file('foto')->store('attendances', 'public'),
+                        'foto_checkout' => $fotoPath,
                         'early_leave_reason' => $request->early_leave_reason,
                         'work_hours' => $workMinutes,
                         'attendance_percentage' => $attendancePercentage
                     ]);
-    
+
                     // Create notification for check-out
                     $notificationMessage = $request->nama . ' telah melakukan check out';
                     if ($request->early_leave_reason) {
                         $notificationMessage .= ' dengan alasan: ' . $request->early_leave_reason;
                     }
-                    
+
                     // Format duration text more precisely
                     $hours = floor($workMinutes / 60);
                     $minutes = $workMinutes % 60;
@@ -193,7 +201,7 @@ class AttendanceController extends Controller
                         $durationText = $hours . ' jam' . ($minutes > 0 ? ' ' . $minutes . ' menit' : '');
                     }
                     $notificationMessage .= " (Durasi kerja: $durationText)";
-    
+
                     Notification::create([
                         'user_id' => Auth::id(),
                         'title' => 'Check Out',
@@ -205,10 +213,16 @@ class AttendanceController extends Controller
                     throw new \Exception('Gagal memproses check-out: ' . $e->getMessage());
                 }
             } else {
+                // Simpan foto di direktori public/storage/attendances
+                $photoFile = $request->file('foto');
+                $fileName = uniqid() . '_' . time() . '.' . $photoFile->getClientOriginalExtension();
+                $photoFile->move(public_path('storage/attendances'), $fileName);
+                $fotoPath = 'attendances/' . $fileName;
+
                 // Create new attendance record for check-in
                 $attendance = Attendance::create([
                     'nama' => $request->nama,
-                    'foto' => $request->file('foto')->store('attendances', 'public'),
+                    'foto' => $fotoPath,
                     'lokasi' => $request->lokasi,
                     'hadir_untuk' => $request->hadir_untuk,
                     'tanggal' => $today,
@@ -217,7 +231,7 @@ class AttendanceController extends Controller
                     'attendance_percentage' => 0,
                     'auto_checkout' => false
                 ]);
-    
+
                 // Create notification for check-in
                 Notification::create([
                     'user_id' => Auth::id(),
@@ -225,13 +239,13 @@ class AttendanceController extends Controller
                     'message' => $request->nama . ' telah melakukan check in',
                     'type' => 'info'
                 ]);
-    
+
                 // Dispatch auto checkout job
                 Log::info("Dispatching AutoCheckoutJob for attendance ID: {$attendance->id}");
                 AutoCheckoutJob::dispatch($attendance->id)->delay(now()->addHours(8))->onQueue('default');
                 Log::info("AutoCheckoutJob dispatched successfully");
             }
-    
+
             return response()->json([
                 'success' => true,
                 'message' => 'Data presensi berhasil ' . ($request->is_checkout ? 'di-update!' : 'disimpan!'),

@@ -191,7 +191,7 @@
                             <p class="text-sm text-gray-500 mt-1">Detail kehadiran masing-masing karyawan</p>
                         </div>
                     </div>
-                    
+
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
@@ -402,7 +402,7 @@
                                         @if($attendance->foto)
                                         <div class="flex-shrink-0 h-10 w-10">
                                             <img class="h-10 w-10 rounded-full"
-                                                 src="{{ asset('storage/' . $attendance->foto) }}" alt="Foto">
+                                                 src="{{ asset('storage/attendances/' . basename($attendance->foto)) }}" alt="Foto">
                                         </div>
                                     @else
                                         <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-400">
@@ -1242,10 +1242,10 @@
                     row.innerHTML = `
                     <td class="px-8 py-4 whitespace-nowrap">
                         <div class="flex items-center">
-                            ${attendance.foto ? 
+                            ${attendance.foto ?
                                 `<div class="flex-shrink-0 h-10 w-10">
                                     <img class="h-10 w-10 rounded-full" src="${attendance.foto}" alt="Foto">
-                                </div>` : 
+                                </div>` :
                                 `<div class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-400">
                                     <i class="fas fa-user"></i>
                                 </div>`
@@ -1548,7 +1548,7 @@
         // Weekly Chart
         const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
         const weeklyGradient = createGradient(weeklyCtx, 'rgba(245, 158, 11, 0.3)', 'rgba(245, 158, 11, 0.02)');
-        
+
         new Chart(weeklyCtx, {
             type: 'bar',
             data: {
@@ -1627,7 +1627,7 @@
         // Monthly Chart
         const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
         const monthlyGradient = createGradient(monthlyCtx, 'rgba(147, 51, 234, 0.2)', 'rgba(147, 51, 234, 0.02)');
-        
+
         new Chart(monthlyCtx, {
             type: 'line',
             data: {

@@ -25,11 +25,9 @@ class AppServiceProvider extends ServiceProvider
         Validator::extend('current_email', function ($attribute, $value, $parameters, $validator) {
             return $value === \Illuminate\Support\Facades\Auth::user()->email;
         });
-    
+
         Validator::replacer('current_email', function ($message, $attribute, $rule, $parameters) {
             return 'Email saat ini tidak valid.';
         });
     }
-
-    
 }

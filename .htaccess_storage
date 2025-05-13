@@ -1,0 +1,12 @@
+# Redirect /storage requests to /storage/app/public
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /storage/
+
+    # Jika file tidak ditemukan di public/storage
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Redirect ke storage/app/public
+    RewriteRule ^(.*)$ /home/u937410984/domains/maindisamoedra.com/public_html/absen-samoedra/storage/app/public/$1 [L]
+</IfModule>
