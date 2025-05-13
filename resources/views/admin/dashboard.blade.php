@@ -402,7 +402,7 @@
                                         @if($attendance->foto)
                                         <div class="flex-shrink-0 h-10 w-10">
                                             <img class="h-10 w-10 rounded-full"
-                                                 src="{{ asset('storage/attendances/' . basename($attendance->foto)) }}" alt="Foto">
+                                                 src="{{ asset('public/storage/attendances/' . basename($attendance->foto)) }}" alt="Foto">
                                         </div>
                                     @else
                                         <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-400">
@@ -552,6 +552,50 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Fungsi untuk mendapatkan CSRF token
+        function getCsrfToken() {
+            return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        }
+
+        // Fungsi untuk membuat permintaan fetch dengan CSRF token
+        async function fetchWithCsrf(url, options = {}) {
+            // Pastikan options.headers ada
+            options.headers = options.headers || {};
+
+            // Tambahkan CSRF token
+            options.headers['X-CSRF-TOKEN'] = getCsrfToken();
+
+            // Tambahkan Accept: application/json jika tidak ditentukan
+            if (!options.headers['Accept']) {
+                options.headers['Accept'] = 'application/json';
+            }
+
+            try {
+                const response = await fetch(url, options);
+
+                // Periksa apakah respons valid JSON
+                let data;
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    // Tangani respons non-JSON
+                    const text = await response.text();
+                    console.error('Non-JSON response:', text.substring(0, 500));
+                    throw new Error('Respons server tidak valid JSON');
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.message || `Error ${response.status}: ${response.statusText}`);
+                }
+
+                return data;
+            } catch (error) {
+                console.error('Fetch error:', error);
+                throw error;
+            }
+        }
+
         // =============================================
         // SIDEBAR TOGGLE FUNCTIONALITY
         // =============================================
@@ -906,7 +950,6 @@
         if (deleteAttendanceForm) {
             deleteAttendanceForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const formData = new FormData(deleteAttendanceForm);
                 const submitBtn = deleteAttendanceForm.querySelector('button[type="submit"]');
                 const originalText = submitBtn.innerHTML;
 
@@ -914,12 +957,9 @@
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Menghapus...';
 
                 try {
-                    const response = await fetch(deleteAttendanceForm.action, {
+                    const data = await fetchWithCsrf(deleteAttendanceForm.action, {
                         method: 'POST',
                         headers: {
-                            'X-CSRF-TOKEN': document.querySelector(
-                                'meta[name="csrf-token"]').content,
-                            'Accept': 'application/json',
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
@@ -927,14 +967,12 @@
                         })
                     });
 
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(data.message || 'Gagal menghapus');
-
                     showNotification('success', data.message || 'Presensi berhasil dihapus');
                     hideModal(deleteAttendanceModal, deleteAttendanceModalContent);
                     setTimeout(() => location.reload(), 1500);
                 } catch (error) {
                     showNotification('error', error.message);
+                    console.error('Delete attendance error:', error);
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalText;
@@ -970,7 +1008,6 @@
         if (deleteEmployeeForm) {
             deleteEmployeeForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const formData = new FormData(deleteEmployeeForm);
                 const submitBtn = deleteEmployeeForm.querySelector('button[type="submit"]');
                 const originalText = submitBtn.innerHTML;
 
@@ -978,12 +1015,9 @@
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Menghapus...';
 
                 try {
-                    const response = await fetch(deleteEmployeeForm.action, {
+                    const data = await fetchWithCsrf(deleteEmployeeForm.action, {
                         method: 'POST',
                         headers: {
-                            'X-CSRF-TOKEN': document.querySelector(
-                                'meta[name="csrf-token"]').content,
-                            'Accept': 'application/json',
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
@@ -991,14 +1025,12 @@
                         })
                     });
 
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(data.message || 'Gagal menghapus');
-
                     showNotification('success', data.message || 'Karyawan berhasil dihapus');
                     hideModal(deleteEmployeeModal, deleteEmployeeModalContent);
                     setTimeout(() => location.reload(), 1500);
                 } catch (error) {
                     showNotification('error', error.message);
+                    console.error('Delete employee error:', error);
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalText;
@@ -1464,7 +1496,17 @@
             const element = document.getElementById(elementId);
             if (element) {
                 if (imageUrl) {
-                    element.src = imageUrl;
+                    // Ubah URL untuk menggunakan /public/storage/attendances/
+                    // Ini akan menggunakan URL lengkap yang disediakan oleh API
+                    // tetapi jika URL tidak mengandung 'public', tambahkan itu
+                    if (!imageUrl.includes('/public/storage/')) {
+                        // Ekstrak nama file dari URL
+                        const fileName = imageUrl.split('/').pop();
+                        element.src = `/public/storage/attendances/${fileName}`;
+                    } else {
+                        element.src = imageUrl;
+                    }
+
                     element.onerror = () => {
                         element.src = defaultUrl;
                     };
@@ -1501,7 +1543,15 @@
                 const imgElement = document.getElementById(elementId);
                 if (imgElement) {
                     if (imageUrl) {
-                        imgElement.src = imageUrl;
+                        // Ubah URL untuk menggunakan /public/storage/attendances/
+                        if (!imageUrl.includes('/public/storage/')) {
+                            // Ekstrak nama file dari URL
+                            const fileName = imageUrl.split('/').pop();
+                            imgElement.src = `/public/storage/attendances/${fileName}`;
+                        } else {
+                            imgElement.src = imageUrl;
+                        }
+
                         imgElement.onerror = () => {
                             imgElement.src = '/images/default-user.jpg';
                         };

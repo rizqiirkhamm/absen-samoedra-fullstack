@@ -41,13 +41,16 @@ class AttendanceController extends Controller
     public function destroy(Attendance $attendance)
     {
         try {
+            // Log untuk debugging
+            Log::info('Memulai proses penghapusan presensi ID: ' . $attendance->id);
+
             // Hapus file foto check-in dari storage
             if ($attendance->foto) {
                 // Dapatkan nama file saja dari path lengkap
                 $fileName = basename($attendance->foto);
                 // Hapus dari direktori public
-                if (file_exists(public_path('storage/attendances/' . $fileName))) {
-                    unlink(public_path('storage/attendances/' . $fileName));
+                if (file_exists(public_path('public/storage/attendances/' . $fileName))) {
+                    unlink(public_path('public/storage/attendances/' . $fileName));
                     Log::info('Foto check-in berhasil dihapus: ' . $fileName);
                 }
             }
@@ -57,18 +60,19 @@ class AttendanceController extends Controller
                 // Dapatkan nama file saja dari path lengkap
                 $fileName = basename($attendance->foto_checkout);
                 // Hapus dari direktori public
-                if (file_exists(public_path('storage/attendances/' . $fileName))) {
-                    unlink(public_path('storage/attendances/' . $fileName));
+                if (file_exists(public_path('public/storage/attendances/' . $fileName))) {
+                    unlink(public_path('public/storage/attendances/' . $fileName));
                     Log::info('Foto check-out berhasil dihapus: ' . $fileName);
                 }
             }
 
             // Hapus record dari database
             $attendance->delete();
+            Log::info('Record presensi berhasil dihapus dari database');
 
             // Buat notifikasi untuk penghapusan presensi
             Notification::create([
-                'user_id' => Auth::id(),
+                'user_id' => Auth::id() ?? 1, // Gunakan ID 1 jika tidak ada user yang login
                 'title' => 'Presensi Dihapus',
                 'message' => 'Data presensi ' . $attendance->nama . ' telah dihapus.',
                 'type' => 'warning'

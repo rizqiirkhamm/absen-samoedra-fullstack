@@ -34,6 +34,7 @@
                 <div class="bg-gradient-to-br from-indigo-50 to-blue-50 p-4 sm:p-5 rounded-xl">
                     <h4 class="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Check In</h4>
                     <div class="relative rounded-xl overflow-hidden mb-3 sm:mb-4">
+                        <!-- src diatur oleh JavaScript saat modal dibuka, menggunakan path public/storage/attendances/ -->
                         <img id="detailFotoCheckIn" src="" alt="Foto Check In"
                             class="w-full h-48 sm:h-56 object-cover bg-gray-200">
                         <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
@@ -55,6 +56,7 @@
                     class="bg-gradient-to-br from-indigo-50 to-blue-50 p-4 sm:p-5 rounded-xl hidden">
                     <h4 class="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Check Out</h4>
                     <div id="checkoutPhotoContainer" class="relative rounded-xl overflow-hidden mb-3 sm:mb-4">
+                        <!-- src diatur oleh JavaScript saat modal dibuka, menggunakan path public/storage/attendances/ -->
                         <img id="detailFotoCheckOut" src="" alt="Foto Check Out"
                             class="w-full h-48 sm:h-56 object-cover bg-gray-200">
                         <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
@@ -109,7 +111,7 @@
             -ms-overflow-style: none;  /* IE and Edge */
             scrollbar-width: none;  /* Firefox */
         }
-        
+
         .modal-scroll::-webkit-scrollbar {
             display: none;  /* Chrome, Safari and Opera */
         }
