@@ -1,0 +1,62 @@
+<?php
+
+/**
+ * File cron:run
+ *
+ * File ini dijalankan oleh scheduled.php melalui cron job
+ * Bertugas untuk menjalankan perintah-perintah cron pada Laravel
+ */
+
+// Tentukan path aplikasi
+$appPath = dirname(dirname(__DIR__));
+
+// Load aplikasi Laravel
+require $appPath . '/vendor/autoload.php';
+$app = require_once $appPath . '/bootstrap/app.php';
+
+// Dapatkan instance Kernel
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+$kernel->bootstrap();
+
+// Log file
+$logFile = $appPath . '/storage/logs/cron.log';
+
+// Fungsi untuk menulis log
+function writeLog($message)
+{
+    global $logFile;
+    $timestamp = date('Y-m-d H:i:s');
+    file_put_contents($logFile, "[$timestamp] $message" . PHP_EOL, FILE_APPEND);
+}
+
+writeLog("Cron job started");
+
+try {
+    // Jalankan queue worker
+    writeLog("Running queue worker");
+    Illuminate\Support\Facades\Artisan::call('queue:work', [
+        '--once' => true,
+        '--sleep' => 3,
+        '--tries' => 3,
+        '--timeout' => 60
+    ]);
+
+    // Jalankan auto checkout jika sudah jam 5 sore pada hari kerja
+    $currentHour = (int)date('H');
+    $currentDay = (int)date('N'); // 1 (Senin) sampai 7 (Minggu)
+
+    if ($currentDay <= 5 && $currentHour >= 17) {
+        writeLog("Running auto checkout");
+        Illuminate\Support\Facades\Artisan::call('attendance:auto-checkout');
+    } else {
+        writeLog("Skipping auto checkout - not work hours (Day: $currentDay, Hour: $currentHour)");
+    }
+
+    // Bersihkan failed jobs yang lama
+    writeLog("Pruning failed jobs");
+    Illuminate\Support\Facades\Artisan::call('queue:prune-failed', ['--hours' => 24]);
+
+    writeLog("Cron job completed successfully");
+} catch (Exception $e) {
+    writeLog("Error: " . $e->getMessage());
+}

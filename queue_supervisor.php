@@ -3,14 +3,12 @@
 /**
  * Queue Worker Supervisor Script
  *
- * Script ini akan memeriksa apakah queue worker sedang berjalan,
- * dan memulainya jika tidak. Script ini juga mencatat log.
+ * Script ini akan menjalankan queue worker untuk memproses pekerjaan yang ada di antrian.
+ * Script ini akan dijalankan oleh cron job setiap 5 menit dan tidak menjalankan
+ * queue worker sebagai proses yang terus berjalan.
  */
 
- 
-
-// Path ke file lock
-$lockFile = __DIR__ . '/storage/queue_worker.lock';
+// Setup path file
 $logFile = __DIR__ . '/storage/logs/queue_worker.log';
 
 // Fungsi untuk menulis log
@@ -21,37 +19,31 @@ function writeLog($message)
     file_put_contents($logFile, "[$timestamp] $message" . PHP_EOL, FILE_APPEND);
 }
 
-// Periksa jika lock file ada, jika tidak, buat lock file
-if (!file_exists($lockFile)) {
-    // Buat timestamp untuk lock file
-    file_put_contents($lockFile, time());
-    writeLog("Queue worker tidak berjalan, memulai worker...");
+writeLog("Memulai eksekusi queue worker");
 
-    // Jalankan queue worker sebagai proses background
-    exec('nohup /usr/bin/php ' . __DIR__ . '/artisan queue:work --sleep=3 --tries=3 --timeout=60 > /dev/null 2>&1 &');
-    writeLog("Queue worker dimulai");
-} else {
-    // Periksa jika lock file sudah terlalu lama (lebih dari 15 menit)
-    $lockTime = file_get_contents($lockFile);
-    if ((time() - $lockTime) > (15 * 60)) {
-        // Lock file terlalu lama, mungkin worker crash
-        writeLog("Lock file terlalu lama, restarting worker...");
-        unlink($lockFile);
-        file_put_contents($lockFile, time());
+// Jalankan artisan command untuk memproses satu job per eksekusi
+// dengan opsi --once untuk memastikan berhenti setelah selesai
+$phpPath = '/usr/local/bin/php'; // Updated PHP path
+$command = $phpPath . ' ' . __DIR__ . '/artisan queue:work --once --sleep=3 --tries=3 --timeout=60';
+writeLog("Menjalankan command: $command");
 
-        // Cari dan hentikan semua proses queue worker yang ada
-        exec("pkill -f 'php artisan queue:work'");
+$startTime = microtime(true);
+$output = [];
+$returnCode = null;
 
-        // Mulai ulang queue worker
-        exec('nohup /usr/bin/php ' . __DIR__ . '/artisan queue:work --sleep=3 --tries=3 --timeout=60 > /dev/null 2>&1 &');
-        writeLog("Queue worker direstart");
-    } else {
-        // Update timestamp lock file
-        file_put_contents($lockFile, time());
-        writeLog("Queue worker sedang berjalan");
-    }
-}
+// Jalankan proses dan tangkap output-nya
+exec($command, $output, $returnCode);
+
+// Hitung waktu eksekusi
+$executionTime = microtime(true) - $startTime;
+
+// Log hasil eksekusi
+$outputStr = implode("\n", $output);
+writeLog("Output: $outputStr");
+writeLog("Return code: $returnCode");
+writeLog("Waktu eksekusi: " . round($executionTime, 2) . " detik");
 
 // Hapus tugas-tugas yang sudah selesai lebih dari 24 jam
-exec('/usr/bin/php ' . __DIR__ . '/artisan queue:prune-failed --hours=24');
+exec($phpPath . ' ' . __DIR__ . '/artisan queue:prune-failed --hours=24');
 writeLog("Membersihkan failed jobs yang lama");
+writeLog("Selesai eksekusi queue worker");
