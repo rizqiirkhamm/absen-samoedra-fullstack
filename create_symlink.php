@@ -45,7 +45,17 @@ function copyDir($src, $dst)
 // Buat direktori yang diinginkan jika belum ada
 // Sesuaikan dengan kebutuhan sistem absensi karyawan
 $dirs = [
+    'employees', // Untuk foto profil karyawan
     'attendances', // Untuk bukti kehadiran
+    'reports', // Untuk laporan
+    'documents', // Untuk dokumen-dokumen terkait
+    'imports', // Untuk file impor data
+    'exports', // Untuk file ekspor data
+    'temp', // Untuk file sementara
+    'qrcodes', // Untuk kode QR (jika menggunakan QR untuk absensi)
+    'logos', // Logo perusahaan
+    'signatures', // Tanda tangan digital
+    'backups', // Backup data
 ];
 
 echo "Checking and creating directories if needed:\n";
